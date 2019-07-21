@@ -1,13 +1,16 @@
-from collections import deque
-from discord.ext import commands
-from discord import Message
-from bot.onibe import post
 from bot.onibe.twitter import Twitter
 from bot.onibe.facebook import Facebook
+from bot.onibe import post
+from collections import deque
+from datetime import datetime
+from discord.ext import commands
+from discord import Message
+from threading import Lock, Thread
 import json
 import os
 import pickle
-import schedule
+import re
+import time
 
 save_path = os.path.join(os.getcwd(), 'data', 'messages.sav')
 
@@ -27,12 +30,12 @@ class OnibeBot(commands.Cog):
             self.config = json.load(f)
 
     def _load_messages(self):
-        self.tweet_queue = pickle.load(open(save_path, 'rb'))
-        if self.tweet_queue is not deque:
-            self.tweet_queue = deque()
+        self.message_queue = pickle.load(open(save_path, 'rb'))
+        if self.message_queue is not deque:
+            self.message_queue = deque()
 
     def _save_messages(self):
-        pickle.dump(self.tweet_queue, open(save_path, 'wb'))
+        pickle.dump(self.message_queue, open(save_path, 'wb'))
 
     def _init_posters(self):
         self.posters = []
@@ -49,13 +52,41 @@ class OnibeBot(commands.Cog):
         self.posters.append(fb)
 
     def _init_scheduler(self):
-        pass
+        today = datetime.today()
+        self.date = today.day
+        self.lock = Lock()
+        self.loop = Thread(target=self._loop)
+        self.loop.start()
 
-    def post(self):
-        pass
+    def _loop(self):
+        today = datetime.today()
+        length = 3600 - today.minute * 60 - today.second
+
+        time.sleep(length)
+
+        while True:
+            today = datetime.today()
+            if today.day != self.date and today.hour > 8:
+                self.date = today.day
+                self._post()
+
+            time.sleep(3600 * 6)
+
+    def _post(self):
+        if len(self.message_queue) > 0:
+            message = self.message_queue.popleft()
+            for poster in self.posters:
+                poster.post(message)
+
+            with self.lock:
+                self._save_messages()
 
     @commands.Cog.listener()
     async def on_message(self, message: Message):
         if message.author.id != self.bot.user.id:
             if message.channel.id == self.config['archive_channel']:
-                pass
+                link = re.search(r"(?P<url>https?://[^\s]+)", message.content).group("url")
+                text = message.content.replace(link, '').strip()
+                message = post.Message(text, link, [])
+
+                self.message_queue.append(message)
