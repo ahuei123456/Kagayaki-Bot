@@ -70,7 +70,7 @@ class OnibeBot(commands.Cog):
                 self.date = today.day
                 self._post()
 
-            time.sleep(3600 * 6)
+            time.sleep(3600)
 
     def _post(self):
         if len(self.message_queue) > 0:
