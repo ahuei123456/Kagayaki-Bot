@@ -1,5 +1,8 @@
 import facebook
+import logging
 from bot.onibe.post import Message, Postable
+
+logger = logging.getLogger(__name__)
 
 
 class Facebook(Postable):
@@ -7,8 +10,12 @@ class Facebook(Postable):
         self._init_api(credentials)
 
     def _init_api(self, credentials):
+        logger.info('Initializing Facebook')
         self.facebook = facebook.GraphAPI(access_token=credentials['access_token'])
+        logger.info('Successfully logged in to Facebook')
 
     def post(self, message: Message):
+        logger.info('Posting to Facebook')
         self.facebook.put_object(parent_object='me', connection_name='feed', message=message.text, link=message.link)
-        pass
+        logger.info('Successfully posted to Facebook')
+

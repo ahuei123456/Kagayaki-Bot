@@ -1,8 +1,8 @@
 from bot.onibe.post import Message, Postable
-import os
+import logging
 import tweepy
 
-save_path = os.path.join(os.getcwd(), 'data', 'tweets.sav')
+logger = logging.getLogger(__name__)
 
 
 class Twitter(Postable):
@@ -10,6 +10,8 @@ class Twitter(Postable):
         self._init_api(credentials)
 
     def _init_api(self, credentials):
+        logger.info('Initializing Twitter')
+
         c_key = credentials['client_key']
         c_secret = credentials['client_secret']
         a_token = credentials['access_token']
@@ -18,8 +20,10 @@ class Twitter(Postable):
         auth.set_access_token(a_token, a_secret)
 
         self.twitter = tweepy.API(auth)
+        logger.info('Successfully logged in to Twitter')
 
     def post(self, message: Message):
+        logger.info('Posting to Twitter')
         try:
             media_ids = []
 
@@ -27,5 +31,6 @@ class Twitter(Postable):
                 media_ids.append(self.twitter.media_upload(fp))
 
             self.twitter.update_status(message.text, media_ids=media_ids)
+            logger.info('Successfully posted to Twitter')
         except IndexError:
             pass

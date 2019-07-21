@@ -7,6 +7,7 @@ from bot.onibe.facebook import Facebook
 import json
 import os
 import pickle
+import schedule
 
 save_path = os.path.join(os.getcwd(), 'data', 'messages.sav')
 
@@ -46,6 +47,12 @@ class OnibeBot(commands.Cog):
     def _load_facebook(self):
         fb = Facebook(self.config['facebook'])
         self.posters.append(fb)
+
+    def _init_scheduler(self):
+        pass
+
+    def post(self):
+        pass
 
     @commands.Cog.listener()
     async def on_message(self, message: Message):
