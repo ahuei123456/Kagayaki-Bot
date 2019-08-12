@@ -1,13 +1,14 @@
 from discord.ext import commands
-from discord import client
 from bot.mainserver.quizbot import QuizBot
+from bot.onibe.onibebot import OnibeBot
 import os
 import json
 import logging
 
 
 description = "testing a new quiz bot"
-bot = commands.Bot(command_prefix='?afsdihfoaijidohfaoe', description=description)
+bot = commands.Bot(command_prefix='>', description=description)
+bot.owner_id = 144803988963983360
 
 
 def load_credentials():
@@ -16,20 +17,14 @@ def load_credentials():
         return json.load(f)
 
 
-@client.event
+@bot.event
 async def on_ready():
-    logging.info(f'Logged in as: {bot.user.name} (ID: {bot.id})')
-
-
-@client.event
-async def on_error(event, *args, **kwargs):
-    logging.error(event)
-    logging.error(args)
-    logging.error(kwargs)
+    logging.info(f'Logged in as: {bot.user.name} (ID: {bot.user.id})')
 
 
 if __name__ == "__main__":
     credentials = load_credentials()
 
     bot.add_cog(QuizBot(bot))
+    bot.add_cog(OnibeBot(bot))
     bot.run(credentials['discord']['token'])

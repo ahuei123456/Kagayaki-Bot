@@ -1,3 +1,4 @@
+from bot.helpers import helpers
 from bot.onibe.twitter import Twitter
 from bot.onibe.facebook import Facebook
 from bot.onibe import post
@@ -13,6 +14,7 @@ import re
 import time
 
 save_path = os.path.join(os.getcwd(), 'data', 'messages.sav')
+img_path = os.path.join(os.getcwd(), 'img')
 
 
 class OnibeBot(commands.Cog):
@@ -21,6 +23,7 @@ class OnibeBot(commands.Cog):
         self._load_messages()
         self._load_config()
         self._init_posters()
+        self._init_scheduler()
 
     def _load_config(self, path=None):
         if path is None:
@@ -29,9 +32,12 @@ class OnibeBot(commands.Cog):
         with open(path) as f:
             self.config = json.load(f)
 
+        self.archive_channels = self.config['archive_channels']
+
     def _load_messages(self):
-        self.message_queue = pickle.load(open(save_path, 'rb'))
-        if self.message_queue is not deque:
+        try:
+            self.message_queue = pickle.load(open(save_path, 'rb'))
+        except FileNotFoundError:
             self.message_queue = deque()
 
     def _save_messages(self):
@@ -41,7 +47,7 @@ class OnibeBot(commands.Cog):
         self.posters = []
 
         self._load_twitter()
-        self._load_facebook()
+        #self._load_facebook()
 
     def _load_twitter(self):
         tw = Twitter(self.config['twitter'])
@@ -84,9 +90,53 @@ class OnibeBot(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: Message):
         if message.author.id != self.bot.user.id:
-            if message.channel.id == self.config['archive_channel']:
-                link = re.search(r"(?P<url>https?://[^\s]+)", message.content).group("url")
-                text = message.content.replace(link, '').strip()
-                message = post.Message(text, link, [])
+            if message.channel.id in self.archive_channels:
+                await self.queue_message(message=message)
 
-                self.message_queue.append(message)
+    async def queue_message(self, message=None, content=None, attachments=None):
+        if message is not None:
+            content = message.content
+            attachments = message.attachments
+
+        link = get_url(content)
+        text = content.replace(link, '').strip()
+        paths = await download_attachments(attachments)
+
+        message = post.Message(text, link, paths)
+
+        self.message_queue.append(message)
+
+        with self.lock:
+            self._save_messages()
+
+    @commands.command()
+    @helpers.is_me()
+    async def queue(self, ctx, *, content: str):
+        await ctx.send('Message queued')
+        await self.queue_message(content=content, attachments=ctx.message.attachments)
+
+    @commands.command()
+    @helpers.is_me()
+    async def post(self, ctx):
+        self._post()
+        await ctx.send('Message posted')
+
+
+async def download_attachments(attachments):
+    paths = []
+
+    for attachment in attachments:
+        path = os.path.join(img_path, attachment.filename)
+        await attachment.save(path)
+
+        paths.append(path)
+
+    return paths
+
+
+def get_url(content):
+    try:
+        link = re.search(r"(?P<url>https?://[^\s]+)", content).group("url")
+    except AttributeError:
+        link = ''
+    return link

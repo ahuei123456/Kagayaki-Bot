@@ -28,9 +28,14 @@ class Twitter(Postable):
             media_ids = []
 
             for fp in message.media:
-                media_ids.append(self.twitter.media_upload(fp))
+                media_ids.append(self.twitter.media_upload(fp).media_id)
 
-            self.twitter.update_status(message.text, media_ids=media_ids)
+            text = f'{message.text} {message.link}'
+
+            try:
+                self.twitter.update_status(text, media_ids=media_ids)
+            except tweepy.error.TweepError as e:
+                print(e)
             logger.info('Successfully posted to Twitter')
         except IndexError:
             pass
