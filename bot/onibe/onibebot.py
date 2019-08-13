@@ -49,8 +49,8 @@ class OnibeBot(commands.Cog):
     def _init_posters(self):
         self.posters = []
 
-        #self._load_twitter()
-        #self._load_facebook()
+        self._load_twitter()
+        self._load_facebook()
 
     def _load_twitter(self):
         tw = Twitter(self.config['twitter'])
