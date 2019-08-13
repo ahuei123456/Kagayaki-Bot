@@ -4,9 +4,11 @@ from abc import ABC, abstractmethod
 
 @dataclass
 class Message:
+    message_id: int
+    channel_id: int
     text: str
     link: str
-    media: list
+    media: str
 
 
 class Postable(ABC):

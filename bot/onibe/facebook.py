@@ -16,6 +16,11 @@ class Facebook(Postable):
 
     def post(self, message: Message):
         logger.info('Posting to Facebook')
-        self.facebook.put_object(parent_object='me', connection_name='feed', message=message.text, link=message.link)
+        if message.media is not None and len(message.media) > 0:
+            self.facebook.put_photo(image=open(message.media, 'rb'), caption=f'{message.text}\n\n{message.link}')
+        else:
+            self.facebook.put_object(parent_object='me', connection_name='feed', message=message.text,
+                                     link=message.link)
+
         logger.info('Successfully posted to Facebook')
 

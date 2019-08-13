@@ -27,8 +27,8 @@ class Twitter(Postable):
         try:
             media_ids = []
 
-            for fp in message.media:
-                media_ids.append(self.twitter.media_upload(fp).media_id)
+            if message.media is not None and len(message.media) > 0:
+                media_ids.append(self.twitter.media_upload(message.media).media_id)
 
             text = f'{message.text} {message.link}'
 

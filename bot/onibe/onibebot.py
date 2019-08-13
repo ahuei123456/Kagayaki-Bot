@@ -4,9 +4,11 @@ from bot.onibe.facebook import Facebook
 from bot.onibe import post
 from collections import deque
 from datetime import datetime
+from datetime import timedelta
 from discord.ext import commands
-from discord import Message
+from discord import File, Message
 from threading import Lock, Thread
+import asyncio
 import json
 import os
 import pickle
@@ -33,6 +35,7 @@ class OnibeBot(commands.Cog):
             self.config = json.load(f)
 
         self.archive_channels = self.config['archive_channels']
+        helpers.allowed_users = self.config['allowed_users']
 
     def _load_messages(self):
         try:
@@ -46,7 +49,7 @@ class OnibeBot(commands.Cog):
     def _init_posters(self):
         self.posters = []
 
-        self._load_twitter()
+        #self._load_twitter()
         #self._load_facebook()
 
     def _load_twitter(self):
@@ -87,22 +90,34 @@ class OnibeBot(commands.Cog):
             with self.lock:
                 self._save_messages()
 
+    def _clear(self):
+        self.message_queue.clear()
+
+        with self.lock:
+            self._save_messages()
+
+    async def react_complete(self, message_id: int, channel_id: int):
+        channel = await self.bot.get_channel(channel_id)
+        original = await channel.fetch_message(message_id)
+
+        await original.add_reaction('✅')
+
     @commands.Cog.listener()
     async def on_message(self, message: Message):
         if message.author.id != self.bot.user.id:
             if message.channel.id in self.archive_channels:
                 await self.queue_message(message=message)
+                await message.add_reaction('⏲')
 
-    async def queue_message(self, message=None, content=None, attachments=None):
-        if message is not None:
+    async def queue_message(self, message=None, content=None):
+        if content is None:
             content = message.content
-            attachments = message.attachments
 
         link = get_url(content)
         text = content.replace(link, '').strip()
-        paths = await download_attachments(attachments)
+        paths = await download_attachments(message.attachments)
 
-        message = post.Message(text, link, paths)
+        message = post.Message(message.id, message.channel.id, text, link, '' if len(paths) == 0 else paths[0])
 
         self.message_queue.append(message)
 
@@ -110,16 +125,51 @@ class OnibeBot(commands.Cog):
             self._save_messages()
 
     @commands.command()
-    @helpers.is_me()
+    @helpers.is_poster()
     async def queue(self, ctx, *, content: str):
         await ctx.send('Message queued')
-        await self.queue_message(content=content, attachments=ctx.message.attachments)
+        await self.queue_message(ctx.message, content)
 
     @commands.command()
-    @helpers.is_me()
+    @helpers.is_poster()
     async def post(self, ctx):
         self._post()
         await ctx.send('Message posted')
+
+    @commands.command()
+    @helpers.is_poster()
+    async def clear(self, ctx):
+        self._clear()
+        await ctx.send('Queue cleared')
+
+    @commands.command()
+    @helpers.is_poster()
+    async def dump(self, ctx):
+        for message in self.message_queue:
+            text = f'{message.text} {message.link}'
+            await ctx.send(content=text, file=File(open(message.media, 'rb')))
+
+    @commands.command()
+    async def next(self, ctx):
+        now = datetime.now()
+        if now.hour > 8:
+            now += timedelta(days=1)
+
+        now = now.replace(hour=8, minute=0, second=0, microsecond=0)
+
+        content = f'Next post will be made on {now.strftime("%b %d, %H:%M %Z")}'
+
+        await ctx.send(content)
+
+    @commands.command()
+    @helpers.is_me()
+    async def approve(self, ctx):
+        allowed_users = [user.id for user in ctx.message.mentions]
+        helpers.allowed_users.extend(allowed_users)
+
+        text = f'Temporarily added users {allowed_users} to post helpers'
+
+        await ctx.send(content=text)
 
 
 async def download_attachments(attachments):
