@@ -90,6 +90,9 @@ class OnibeBot(commands.Cog):
             with self.lock:
                 self._save_messages()
 
+            if message.media is not None and len(message.media) > 0:
+                os.remove(message.media)
+
     def _clear(self):
         self.message_queue.clear()
 

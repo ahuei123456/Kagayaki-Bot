@@ -199,3 +199,4 @@ dmypy.json
 
 # saved data
 /bot/data/*
+/bot/img/*
