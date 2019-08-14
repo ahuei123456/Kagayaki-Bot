@@ -24,3 +24,6 @@ class Facebook(Postable):
 
         logger.info('Successfully posted to Facebook')
 
+    def newest(self):
+        pass
+

@@ -1,4 +1,5 @@
 from bot.onibe.post import Message, Postable
+import html
 import logging
 import tweepy
 
@@ -39,3 +40,79 @@ class Twitter(Postable):
             logger.info('Successfully posted to Twitter')
         except IndexError:
             pass
+
+    def newest(self):
+        statuses = self.twitter.user_timeline(count=1, tweet_mode='extended')
+        status = statuses[0]
+        return build_message(status)
+
+
+def is_retweet(status):
+    return hasattr(status, 'retweeted_status')
+
+
+def get_status(status):
+    if is_retweet(status):
+        return status.retweeted_status
+
+    return status
+
+
+def get_text(status):
+    status = get_status(status)
+    try:
+        text = status.extended_tweet['full_text']
+    except AttributeError:
+        text = status.full_text
+
+    try:
+        medias = get_media_entities(status)
+        url = medias[0]['url']
+        text = text.replace(url, '').strip()
+    except IndexError:
+        pass
+
+    return html.unescape(text)
+
+
+def get_media_entities(status):
+    status = get_status(status)
+
+    try:
+        try:
+            e_status = status.extended_tweet
+            return e_status['extended_entities']['media']
+        except AttributeError:
+            return status.extended_entities['media']
+    except KeyError:
+        return []
+
+
+def get_first_url(status):
+    status = get_status(status)
+
+    try:
+        return status.entities['urls'][0]
+    except (AttributeError, KeyError, IndexError):
+        return ''
+
+
+def get_first_photo(status):
+    medias = get_media_entities(status)
+
+    try:
+        media = medias[0]
+        if media['type'] == 'photo':
+            return media['media_url']
+    except IndexError:
+        return None
+
+    return None
+
+
+def build_message(status):
+    text = get_text(status)
+    link = get_first_url(status)
+    media = get_first_photo(status)
+
+    return Message(0, 0, text, link, media)

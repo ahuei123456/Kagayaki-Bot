@@ -15,3 +15,7 @@ class Postable(ABC):
     @abstractmethod
     def post(self, message: Message):
         ...
+
+    @abstractmethod
+    def newest(self):
+        ...

@@ -8,12 +8,12 @@ from datetime import timedelta
 from discord.ext import commands
 from discord import File, Message
 from threading import Lock, Thread
-import asyncio
 import json
 import os
 import pickle
 import re
 import time
+import urllib.request
 
 save_path = os.path.join(os.getcwd(), 'data', 'messages.sav')
 img_path = os.path.join(os.getcwd(), 'img')
@@ -47,18 +47,18 @@ class OnibeBot(commands.Cog):
         pickle.dump(self.message_queue, open(save_path, 'wb'))
 
     def _init_posters(self):
-        self.posters = []
+        self.posters = dict()
 
         self._load_twitter()
         self._load_facebook()
 
     def _load_twitter(self):
         tw = Twitter(self.config['twitter'])
-        self.posters.append(tw)
+        self.posters['twitter'] = tw
 
     def _load_facebook(self):
         fb = Facebook(self.config['facebook'])
-        self.posters.append(fb)
+        self.posters['facebook'] = fb
 
     def _init_scheduler(self):
         today = datetime.today()
@@ -84,7 +84,7 @@ class OnibeBot(commands.Cog):
     def _post(self):
         if len(self.message_queue) > 0:
             message = self.message_queue.popleft()
-            for poster in self.posters:
+            for poster in self.posters.values():
                 poster.post(message)
 
             with self.lock:
@@ -174,6 +174,13 @@ class OnibeBot(commands.Cog):
 
         await ctx.send(content=text)
 
+    @commands.command()
+    @helpers.is_poster()
+    async def mirror(self, ctx):
+        message = self.posters['twitter'].newest()
+        message.media = download(message.media)
+        self.posters['facebook'].post(message)
+
 
 async def download_attachments(attachments):
     paths = []
@@ -193,3 +200,12 @@ def get_url(content):
     except AttributeError:
         link = ''
     return link
+
+
+def download(link):
+    head, tail = os.path.split(link)
+    path = os.path.join(img_path, tail)
+
+    urllib.request.urlretrieve(link, path)
+
+    return path
